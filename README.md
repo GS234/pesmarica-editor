@@ -1,6 +1,6 @@
 # Pesmarica Editor
 
-_Song editor for project [Pesmarica]()_
+_Song editor for project [Pesmarica](https://github.com/GS234/pesmarica-app)_
 
 ### About
 This is a Kotlin Mutliplatform project of a song editor and file generator _app_ which can be used to create, edit and export a file with song lyrics and chords. This file can then be imported into Pesmarica - a song viewer app made for singers and instrumentalists.
