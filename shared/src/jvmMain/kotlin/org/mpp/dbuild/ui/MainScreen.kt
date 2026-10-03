@@ -433,6 +433,7 @@ private fun MainScreen(
             }
             ContentColumn(previewWidth) {
                 // AnimatedVisibility
+                var scale by remember {mutableFloatStateOf(1f)}
                 Text("Predogled")
                 if (selectedSong == null) {
                     Text("-")
@@ -444,7 +445,7 @@ private fun MainScreen(
                         key(selectedSong.id, selectedSongLyricsChunks) {
                             Box(
                                 modifier = Modifier
-                                    .fillMaxHeight(0.9f)
+                                    .fillMaxHeight(0.8f)
                                     .fillMaxWidth()
                             ) {
                                 Box(
@@ -459,12 +460,15 @@ private fun MainScreen(
                                 ) {
                                     NewLyrics2(
                                         chunks = selectedSongLyricsChunks,
-                                        transposeNsemi = transposeNsemi
+                                        transposeNsemi = transposeNsemi,
+                                        scale = scale
                                     )
                                 }
                             }
                         }
                         TransposeSlider { transposeNsemi = it }
+                        Text("Povečava: $scale")
+                        ScaleSlider { scale = it }
                     }
                 }
             }
@@ -676,7 +680,7 @@ fun NewFileWindow(
         },
         onResult = { file ->
             if (file == null) {
-                // The user cancelled the saver
+                // The user canceled the saver
                 onCancel()
             } else {
                 onNew(file.path)
@@ -772,5 +776,21 @@ fun TransposeSlider(
         },
         valueRange = -5f..6f,
         steps = 10
+    )
+}
+
+@Composable
+fun ScaleSlider(
+    initialValue: Float = 1f,
+    onValueUpdate: (v:Float) -> Unit,
+) {
+    var sliderPosition by remember { mutableFloatStateOf(initialValue) }
+    Slider(
+        value = sliderPosition,
+        onValueChange = { value ->
+            sliderPosition = value
+            onValueUpdate(value)
+        },
+        valueRange = 0.8f..3f,
     )
 }

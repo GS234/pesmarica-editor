@@ -223,7 +223,11 @@ fun DoubleLine(
     if(showL1){
         Column(modifier = modifier){
             chordLines.forEachIndexed { i, _ ->
-                TextWithChords(textLines[i], chordLines[i].transpose(nSemi = transposeNsemi))
+                TextWithChords(
+                    textLines[i],
+                    chordLines[i].transpose(nSemi = transposeNsemi),
+                    scale = scale
+                )
             }
         }
     }
@@ -244,7 +248,7 @@ fun DoubleLine(
 
 
 @Composable
-fun TextWithChords(textLine: String, chordLine: ChordLine){
+fun TextWithChords(textLine: String, chordLine: ChordLine, scale: Float = 1f){
     var locations by remember { mutableStateOf(emptyMap<PositionedChord, Offset>()) }
     val density = LocalDensity.current
     val lineHeight = 55.sp
@@ -252,7 +256,8 @@ fun TextWithChords(textLine: String, chordLine: ChordLine){
     Box {
         Text(
             text = textLine,
-            lineHeight = lineHeight,
+            lineHeight = lineHeight*scale,
+            fontSize = TextParams.fontSize*scale,
             onTextLayout = { layoutResult ->
                 val newLocations = mutableMapOf<PositionedChord, Offset>()
                 chordLine.positionedChords.forEach {
@@ -287,7 +292,8 @@ fun TextWithChords(textLine: String, chordLine: ChordLine){
             ) {
                 ChordBubble(
                     chord = positionedChord.chord,
-                    padding = bubblePadding
+                    padding = bubblePadding,
+                    fontSize = TextParams.fontSize*scale,
                 )
             }
         }
@@ -297,14 +303,19 @@ fun TextWithChords(textLine: String, chordLine: ChordLine){
 @Composable
 fun ChordBubble(
     chord: Chord,
-    padding: Dp = 2.dp
+    padding: Dp = 2.dp,
+    fontSize: TextUnit = TextParams.fontSize,
 ){
     Box(
         modifier = Modifier
             .background(MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(4.dp))
             .padding(horizontal = padding)
     ){
-        Text(chord.toString(), color = MaterialTheme.colorScheme.onPrimary, fontSize = 12.sp)
+        Text(
+            chord.toString(),
+            color = MaterialTheme.colorScheme.onPrimary,
+            fontSize = fontSize
+        )
     }
 }
 
@@ -414,12 +425,17 @@ fun ChordText(
     scale: Float = 1f
 ){
     if(showLine){
+        val bubblePadding = 2.dp
         Column {
             chords.forEach { chordLine ->
                 val transposedChordLine = chordLine.transpose(transposeNsemi)
                 Row {
                     transposedChordLine.positionedChords.forEach { chord ->
-                        ChordBubble(chord.chord)
+                        ChordBubble(
+                            chord = chord.chord,
+                            padding = bubblePadding,
+                            fontSize = TextParams.fontSize*scale,
+                        )
                         Spacer(modifier = Modifier.size(2.dp))
                     }
                 }
