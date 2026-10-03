@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +43,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -69,7 +72,6 @@ fun MainScreenRoot(
     val lyricsState = lyricsViewModel.lyricsState
     Box(modifier = Modifier.fillMaxSize()){
         MainScreen(
-            uiState.fileName ?: "new file",
             uiState.songs,
             selectedSong = uiState.selectedSong,
             selectedSongLyricsChunks = lyricsState.chunks,
@@ -207,7 +209,6 @@ private fun MainScreenPreview(){
     )
     // Text("abc")
     MainScreen(
-        mainScreenState.fileName ?: "new file",
         mainScreenState.songs,
         selectedSong = songs[0],
         isFetchingSongs = mainScreenFlags.isFetchingSongs,
@@ -267,7 +268,12 @@ private fun SongButton(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ){
-            Text(name)
+            Text(
+                modifier = Modifier.weight(1f),
+                text = name,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             IconButton(
                 modifier = Modifier.size(20.dp),
                 onClick = onRemove
@@ -289,7 +295,6 @@ sealed class RowAction{
 
 @Composable
 private fun MainScreen(
-    fileName: String,
     songs: List<Song>,
     selectedSong: Song? = null,
     selectedSongLyricsChunks: List<LyricsChunk> = listOf(),
@@ -313,15 +318,18 @@ private fun MainScreen(
         // action row
         val rowHeight = 30.dp
         Row(
-            modifier = Modifier.fillMaxWidth().height(rowHeight)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(rowHeight)
         ) {
             ActionRowButton("Novo", onClick = { onRowAction(RowAction.NewDB()) })
             ActionRowButton("Odpri", onClick = { onRowAction(RowAction.OpenDB()) })
             ActionRowButton("Uvozi", onClick = { onRowAction(RowAction.ImportFromFile()) })
             ActionRowButton("Izvozi", onClick = { onRowAction(RowAction.ExportDB()) })
             ActionRowButton("Izbriši", onClick = { onRowAction(RowAction.ClearDB()) })
-            ActionRowButton("Pomoč", onClick = { onRowAction(RowAction.AppHelp()) })
+            // ActionRowButton("Pomoč", onClick = { onRowAction(RowAction.AppHelp()) })
         }
+        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
 
         // content row
         Row(
@@ -332,6 +340,7 @@ private fun MainScreen(
             val editorWidth = 0.5f // 50% of 80% = 40%
             val previewWidth = 1.0f // 100% of 40%
             ContentColumn(songListWidth) {
+                Text("Seznam pesmi")
                 if (isFetchingSongs) {
                     CircularProgressIndicator()
                 } else {
@@ -340,7 +349,8 @@ private fun MainScreen(
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         LazyColumn(
-                            modifier = Modifier.fillMaxHeight(0.95f)
+                            // modifier = Modifier.fillMaxHeight(0.95f)
+                            modifier = Modifier.weight(1f)
                         ) {
                             items(
                                 items = songs,
@@ -357,7 +367,7 @@ private fun MainScreen(
                             modifier = Modifier.fillMaxWidth().height(40.dp),
                             onClick = onAddNewSong
                         ) {
-                            Text("dodaj +") //should be iconButton
+                            Text("Dodaj") //should be iconButton
                         }
                     }
                 }
@@ -384,12 +394,12 @@ private fun MainScreen(
                             onTextUpdate(lyricsTextFieldState.text.toString())
                         }
                         OutlinedTextField(
-                            modifier = Modifier.fillMaxWidth().height(60.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             state = naslovTextFieldState,
                             label = { Text("Naslov") }
                         )
                         OutlinedTextField(
-                            modifier = Modifier.fillMaxWidth().height(60.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             state = avtorTextFieldState,
                             label = { Text("Avtor") }
                         )
@@ -399,7 +409,7 @@ private fun MainScreen(
                         ) {
                             // update preview
                             OutlinedTextField(
-                                modifier = Modifier.fillMaxWidth().fillMaxHeight(0.90f)
+                                modifier = Modifier.fillMaxWidth().weight(1f)
                                     .padding(0.dp, 10.dp, 0.dp, 0.dp),
                                 state = lyricsTextFieldState,
                                 textStyle = LocalTextStyle.current.copy(
@@ -434,18 +444,18 @@ private fun MainScreen(
             ContentColumn(previewWidth) {
                 // AnimatedVisibility
                 var scale by remember {mutableFloatStateOf(1f)}
-                Text("Predogled")
+                Text("Predogled besedila")
                 if (selectedSong == null) {
                     Text("-")
                 } else {
                     var transposeNsemi by remember {mutableIntStateOf(0)}
                     Column(
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize().padding(top = 8.dp)
                     ) {
                         key(selectedSong.id, selectedSongLyricsChunks) {
                             Box(
                                 modifier = Modifier
-                                    .fillMaxHeight(0.8f)
+                                    .weight(1f)
                                     .fillMaxWidth()
                             ) {
                                 Box(
@@ -454,7 +464,7 @@ private fun MainScreen(
                                         .border(
                                             border = BorderStroke(
                                                 1.dp,
-                                                MaterialTheme.colorScheme.onBackground
+                                                MaterialTheme.colorScheme.outline
                                             ), shape = RoundedCornerShape(5.dp)
                                         )
                                 ) {

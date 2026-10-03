@@ -409,10 +409,10 @@ fun BasicLyrics(
         Text(
             text = text.replace("_",""),
             overflow = TextOverflow.Visible,
-            letterSpacing = TextParams.spacing,
+            // letterSpacing = TextParams.spacing,
             lineHeight = TextParams.singleLineHeight*scale,
             fontSize = TextParams.fontSize*scale,
-            fontFamily = TextParams.monoFont
+            // fontFamily = TextParams.monoFont
         )
     }
 }
