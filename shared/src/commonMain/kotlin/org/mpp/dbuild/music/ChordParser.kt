@@ -3,6 +3,7 @@ package org.mpp.dbuild.music
 // import java.io.File
 import org.mpp.dbuild.utils.formatString
 import org.mpp.dbuild.utils.readFile
+import javax.swing.text.Position
 import kotlin.sequences.forEach
 
 const val chordRegexString: String = "\\(?([HCDFGhcdfg](is|es)?|[AaEe](is|s)?|[Bb])(\\()?(maj|sus|add)?(([24679]|11)(-3)?)?\\)?(\\/([HCDFGhcdfg](is|es)?|[AaEe](is|s)?|[Bb])?)?\\)?" //v3
@@ -73,7 +74,7 @@ fun getChordFromGroupValues(groupValues: List<String>): Chord {
 }
 
 //generate chord line
-data class ChordLine(
+data class OldChordLine(
     val annotatedChords: List<Pair<Int?, Chord>>,
     val format: String,
     val withinScale: Chord? = null
@@ -104,37 +105,78 @@ data class ChordLine(
         return addToFormatString(nSemi)
     }
 }
+
+data class PositionedChord(
+    val chord: Chord,
+    val position: Int
+)
+data class ChordLine(
+    val positionedChords: List<PositionedChord>,
+    val withinScale: Chord? = null
+){
+    fun transpose(nSemi: Int): ChordLine{
+        return if(nSemi == 0) this
+        else this.copy(positionedChords = positionedChords.map { PositionedChord(chord = it.chord.transpose(nSemi = nSemi, withinScale = withinScale), position = it.position) })
+    }
+
+    override fun toString(): String {
+        return positionedChords.fold("") {z, el -> z + el.chord.toString()}
+    }
+    @Deprecated(message = "This will be deleted in future. Usage of new chord mechanics recommended.")
+    fun getOldChordLine(): OldChordLine {
+        return generateChordLine(
+            positionedChords = positionedChords,
+            withinScale = withinScale
+        )
+    }
+}
+
+
+
 //returns: (position, chord)
-fun getChordsFromLine(line: String): ArrayList<Pair<Int, Chord>>{
+fun getChordsFromLine(line: String): ArrayList<PositionedChord>{
     val chordRegex = chordRegexString.toRegex()
     val matchResults = chordRegex.findAll(line)
-    val result = ArrayList<Pair<Int, Chord>>()
-    matchResults.forEach {
-            el ->
-//        println(el.groupValues)
+    val result = ArrayList<PositionedChord>()
+    matchResults.forEach { el ->
         val chord = getChordFromGroupValues(el.groupValues)
-        result.add(el.range.first to chord)
+        val positionedChord = PositionedChord(
+            chord = chord,
+            position = el.range.first
+        )
+        result.add(positionedChord)
     }
     return result
 }
 
 fun generateChordLine(chordLine: String, withinScale: Chord?=null): ChordLine{
-    val r = getChordsFromLine(chordLine)
+    val positionedChords = getChordsFromLine(chordLine)
+    return ChordLine(
+        positionedChords = positionedChords,
+        withinScale = withinScale
+    )
+}
+
+fun generateChordLine(positionedChords: List<PositionedChord>, withinScale: Chord? =null): OldChordLine{
     val formatString = StringBuilder()
     val offsets = mutableListOf<Int?>()
-    for (i in 0..<r.size){
-        val p = r[i]
-        val toNext = if(i+1 < r.size) r[i+1].first - p.first else null
+    for ((i, element) in positionedChords.withIndex()){
+        val p = element
+        val toNext = if(i+1 < positionedChords.size) positionedChords[i+1].position - p.position else null
         offsets.add(toNext)
         if(i == 0){
-            formatString.append("".padStart(p.first))
+            formatString.append("".padStart(p.position))
         }
         val formatStringVal = if(toNext != null && toNext > 0) "%-${toNext}s%s" else "%s%s" // %0s throws error, but %-0s and %s are same
         formatString.append(formatStringVal)
     }
     val formatStr = formatString.toString()
-    val mapped = r.mapIndexed { index, el -> offsets[index] to el.second }
-    return ChordLine(mapped, formatStr, withinScale = withinScale)
+    val mapped = positionedChords.mapIndexed { index, el -> offsets[index] to el.chord }
+    return OldChordLine(
+        annotatedChords = mapped,
+        format = formatStr,
+        withinScale = withinScale
+    )
 }
 
 //fun main() {

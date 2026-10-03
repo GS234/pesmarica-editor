@@ -284,7 +284,6 @@ sealed class RowAction{
     class ExportDB: RowAction()
     class ClearDB: RowAction()
     class AppHelp: RowAction()
-    // data class ImportFromFile(val path: String): RowAction()
     class ImportFromFile: RowAction()
 }
 
@@ -528,7 +527,6 @@ fun OpenFileWindow(
     onCancel: () -> Unit = {}
 ){
     val filenameDefaultValue = ""
-    // var filename by remember {mutableStateOf(filenameDefaultValue)}
     val launcher = rememberFilePickerLauncher(
         onError = {
             println(it.message)
@@ -550,32 +548,9 @@ fun OpenFileWindow(
             ){
                 Text("Prekliči")
             }
-            // Button(onClick = {
-            //     if(filename.isNotEmpty() && filename.isNotBlank()){
-            //         onOpen(filename)
-            //     }
-            //     else{
-            //         println("db path is empty, not opening")
-            //     }
-            // }){
-            //     Text("odpri")
-            // }
         }
     ) {
         CircularProgressIndicator()
-        // Column(
-        //     modifier = Modifier.fillMaxSize()
-        // ){
-        //     Text("Datoteka:")
-        //     val launcher = rememberFilePickerLauncher(
-        //         onError = { println(it.message)},
-        //         onResult = { file ->
-        //             filename = file?.path ?: filenameDefaultValue
-        //         }
-        //     )
-        //     Text(if(filename.isNotEmpty() && filename.isNotBlank()) "Datoteka: $filename" else "Datoteka: -")
-        //     Button(onClick={launcher.launch()}){Text("Izberi")}
-        // }
     }
 }
 @Composable

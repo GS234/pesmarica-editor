@@ -33,9 +33,7 @@ sealed class LyricsChunk{
 
 object ChunkGeneratorStateMachine{
     val textLines = mutableListOf<String>()  // buffer for text
-    //    val chordLines = mutableListOf<String>() // buffer for chords
-    val chordLines = mutableListOf<ChordLine>() // buffer for chords
-    //    val textChunks = mutableListOf<LyricsChunk>() // chunks: this is returned
+    val chordLines = mutableListOf<ChordLine>() // buffer for chord
     val textChunks = mutableListOf<LyricsChunk>() // chunks: this is returned
 
     var inputLine: String = "" // line that is read (is set inside onInput)
@@ -49,7 +47,7 @@ object ChunkGeneratorStateMachine{
         if((line.firstOrNull() ?: ' ') == '$'){
             val chords = getChordsFromLine(line)
             if(chords.isNotEmpty()){
-                scale = chords[0].second
+                scale = chords[0].chord
 //                println("[scale change] scale is now $scale")
             }
             return // skip this line, because it is no longer needed
@@ -211,4 +209,14 @@ suspend fun chunkGenerator2(lyricsLines: String): List<LyricsChunk> = withContex
         ChunkGeneratorStateMachine.onInput(string)
     }
     ChunkGeneratorStateMachine.getChunks()
+}
+
+fun chunkGenerator2noSuspend(lyricsLines: String): List<LyricsChunk> {
+    val lines = "$lyricsLines\n".split("\n")
+//    init generator
+    ChunkGeneratorStateMachine.resetMachine()
+    lines.forEach { string ->
+        ChunkGeneratorStateMachine.onInput(string)
+    }
+    return ChunkGeneratorStateMachine.getChunks()
 }

@@ -77,13 +77,13 @@ private fun MainScreenPreview(){
     )
 }
 
-@Preview(
-    name = "Desktop Shell Simulator",
-    // 🖥️ This forces Android Studio to render a 1024x768 desktop landscape canvas
-    device = "spec:width=1024dp,height=768dp,dpi=160",
-    showBackground = true,
-    backgroundColor = 0xFF121212 // Optional: Forces a dark gray background if your theme is dark
-)
+// @Preview(
+//     name = "Desktop Shell Simulator",
+//     // 🖥️ This forces Android Studio to render a 1024x768 desktop landscape canvas
+//     device = "spec:width=1024dp,height=768dp,dpi=160",
+//     showBackground = true,
+//     backgroundColor = 0xFF121212 // Optional: Forces a dark gray background if your theme is dark
+// )
 @Composable
 private fun ActionWindowContainerRoot(){
     // OpenFileWindow()

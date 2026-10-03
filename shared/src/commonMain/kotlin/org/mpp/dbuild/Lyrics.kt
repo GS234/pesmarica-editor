@@ -1,13 +1,19 @@
 package org.mpp.dbuild
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,7 +24,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -32,11 +40,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.mpp.dbuild.music.Chord
 import org.mpp.dbuild.music.ChordLine
 import org.mpp.dbuild.music.LyricsChunk
+import org.mpp.dbuild.music.PositionedChord
 import org.mpp.dbuild.music.chunkGenerator2
 import org.mpp.dbuild.ui.theme.MonoFF
 import org.mpp.dbuild.ui.theme.getMonoFontFamily
+import kotlin.collections.component1
+import kotlin.collections.component2
 
 object TextParams{
     val singleLineHeight: TextUnit = 20.sp
@@ -199,9 +211,109 @@ suspend fun normalizeChordLyricsLine(chordLine:String, lyricLine: String): Norma
     }
 
 
-// todo: optimize
 @Composable
 fun DoubleLine(
+    chordLines: List<ChordLine>,
+    textLines: List<String>,
+    showL1: Boolean = true,
+    modifier: Modifier = Modifier,
+    transposeNsemi: Int,
+    scale: Float = 1f
+){
+    if(showL1){
+        Column(modifier = modifier){
+            chordLines.forEachIndexed { i, _ ->
+                TextWithChords(textLines[i], chordLines[i].transpose(nSemi = transposeNsemi))
+            }
+        }
+    }
+    else{
+        val l2 = textLines.joinToString("\n").replace("_","")
+        Box(modifier = modifier){
+            Text(
+                text = l2,
+                overflow = TextOverflow.Visible,
+                letterSpacing = TextParams.spacing,
+                lineHeight = TextParams.singleLineHeight*scale,
+                fontSize = TextParams.fontSize*scale,
+                fontFamily = TextParams.monoFont
+            )
+        }
+    }
+}
+
+
+@Composable
+fun TextWithChords(textLine: String, chordLine: ChordLine){
+    var locations by remember { mutableStateOf(emptyMap<PositionedChord, Offset>()) }
+    val density = LocalDensity.current
+    val lineHeight = 55.sp
+    val yOff = 6f
+    Box {
+        Text(
+            text = textLine,
+            lineHeight = lineHeight,
+            onTextLayout = { layoutResult ->
+                val newLocations = mutableMapOf<PositionedChord, Offset>()
+                chordLine.positionedChords.forEach {
+                    var lastOffset: Offset? = null
+                    if(it.position < textLine.length) {
+                        val rect = layoutResult.getBoundingBox(it.position)
+                        // val zacetekX = (rect.left + rect.right) / 2f
+                        val zacetekX = rect.left
+                        val vrhY = rect.top - yOff
+                        lastOffset = Offset(zacetekX, vrhY)
+                        newLocations[it] = lastOffset
+                    }
+                    else{
+                        newLocations[it] = lastOffset ?: Offset(0f, 0f)
+                    }
+                }
+                locations = newLocations
+            },
+        )
+
+        locations.forEach { (positionedChord, offset) ->
+            val bubblePadding = 2.dp
+            val xDp = with(density) { offset.x.toDp()-bubblePadding }
+            val yDp = with(density) { offset.y.toDp() }
+            Box(
+                modifier = Modifier
+                    .offset(
+                        x = xDp,
+                        y = yDp
+                    )
+
+            ) {
+                ChordBubble(
+                    chord = positionedChord.chord,
+                    padding = bubblePadding
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ChordBubble(
+    chord: Chord,
+    padding: Dp = 2.dp
+){
+    Box(
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(4.dp))
+            .padding(horizontal = padding)
+    ){
+        Text(chord.toString(), color = MaterialTheme.colorScheme.onPrimary, fontSize = 12.sp)
+    }
+}
+
+
+
+
+// todo: optimize
+@Composable
+fun OldDoubleLine(
     chordLines: List<ChordLine>,
     textLines: List<String>,
     showL1: Boolean = true,
@@ -218,7 +330,7 @@ fun DoubleLine(
             val textLinesFinal = mutableListOf<String>()
             for (i in 0..<chordLines.size){
                 if(i < textLines.size){
-                    val normalizedChordLyricsLines = normalizeChordLyricsLine(chordLines[i].transpose(transposeNsemi), textLines[i])
+                    val normalizedChordLyricsLines = normalizeChordLyricsLine(chordLines[i].getOldChordLine().transpose(transposeNsemi), textLines[i])
                     chordLinesFinal.add(normalizedChordLyricsLines.normalizedChordLine)
                     textLinesFinal.add(normalizedChordLyricsLines.normalizedLyricsLine)
                 }
@@ -302,20 +414,31 @@ fun ChordText(
     scale: Float = 1f
 ){
     if(showLine){
-        val text = styleText(
-            concatChordLines(chords, transposeNsemi).replace("<+".toRegex(), " "),
-            chordStyler(MaterialTheme.colorScheme.primary)
-        )
-        Box(modifier = modifier){
-            Text(
-                text = text,
-                overflow = TextOverflow.Visible,
-                letterSpacing = TextParams.spacing,
-                lineHeight = TextParams.singleLineHeight*scale,
-                fontSize = TextParams.fontSize*scale,
-                fontFamily = TextParams.monoFont
-            )
+        Column {
+            chords.forEach { chordLine ->
+                val transposedChordLine = chordLine.transpose(transposeNsemi)
+                Row {
+                    transposedChordLine.positionedChords.forEach { chord ->
+                        ChordBubble(chord.chord)
+                        Spacer(modifier = Modifier.size(2.dp))
+                    }
+                }
+            }
         }
+        // val text = styleText(
+        //     concatChordLines(chords, transposeNsemi).replace("<+".toRegex(), " "),
+        //     chordStyler(MaterialTheme.colorScheme.primary)
+        // )
+        // Box(modifier = modifier){
+        //     Text(
+        //         text = text,
+        //         overflow = TextOverflow.Visible,
+        //         letterSpacing = TextParams.spacing,
+        //         lineHeight = TextParams.singleLineHeight*scale,
+        //         fontSize = TextParams.fontSize*scale,
+        //         fontFamily = TextParams.monoFont
+        //     )
+        // }
     }
 }
 
