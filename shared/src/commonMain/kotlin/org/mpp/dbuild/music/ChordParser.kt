@@ -108,8 +108,12 @@ data class OldChordLine(
 
 data class PositionedChord(
     val chord: Chord,
-    val position: Int
+    val position: Int,
+    val lastChordCharPosition: Int = chord.toString().length + position
 )
+// {
+//     fun lastChordCharPosition() = position + chord.toString().length
+// }
 data class ChordLine(
     val positionedChords: List<PositionedChord>,
     val withinScale: Chord? = null

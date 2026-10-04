@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,11 +25,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -223,7 +226,7 @@ fun DoubleLine(
     if(showL1){
         Column(modifier = modifier){
             chordLines.forEachIndexed { i, _ ->
-                TextWithChords(
+                NewTextWithChords(
                     textLines[i],
                     chordLines[i].transpose(nSemi = transposeNsemi),
                     scale = scale
@@ -246,52 +249,145 @@ fun DoubleLine(
     }
 }
 
+data class ChordGroup(
+    val chords: List<PositionedChord>,
+    val offsets: List<Offset>
+)
 
+fun getOffset(positionedChord: PositionedChord, layoutResult: TextLayoutResult, textLength: Int, yOff: Float = 6f): Offset?{
+    return if(positionedChord.position < textLength) {
+        getOffsetAtOrLast(positionedChord.position, layoutResult, textLength)
+    }
+    else null
+}
+fun getOffsetOrLast(positionedChord: PositionedChord, layoutResult: TextLayoutResult, textLength: Int, yOff: Float = 6f): Offset{
+    return getOffsetAtOrLast(
+        position = positionedChord.position,
+        layoutResult = layoutResult,
+        textLength = textLength,
+        yOff = yOff
+    )
+}
+fun getOffsetAtOrLast(position: Int, layoutResult: TextLayoutResult, textLength: Int, yOff: Float = 6f): Offset{
+    val actualPosition = if(position < textLength) position else textLength - 1
+    val rect = layoutResult.getBoundingBox(actualPosition)
+    // val zacetekX = (rect.left + rect.right) / 2f
+    val zacetekX = rect.left
+    val vrhY = rect.top - yOff
+    return Offset(zacetekX, vrhY)
+}
+
+// todo: optimization: scale without recomposition
 @Composable
-fun TextWithChords(textLine: String, chordLine: ChordLine, scale: Float = 1f){
-    var locations by remember { mutableStateOf(emptyMap<PositionedChord, Offset>()) }
+fun NewTextWithChords(
+    textLine: String,
+    chordLine: ChordLine,
+    scale: Float = 1f
+){
+    var groups by remember { mutableStateOf(listOf<ChordGroup>() )}
     val density = LocalDensity.current
-    val lineHeight = 55.sp
-    val yOff = 6f
-    Box {
+    val lineHeight = 50.sp
+    Box(
+        // todo: scale without recomposition
+        // modifier = Modifier
+            // .layout { measurable, constraints ->
+            //     val placeable = measurable.measure(constraints)
+            //     val dynamicWidth = (placeable.width * 1f).roundToInt()
+            //     val dynamicHeight = (placeable.height * scale).roundToInt()
+            //     layout(dynamicWidth, dynamicHeight) {
+            //         val xOffset = (dynamicWidth - placeable.width) / 2
+            //         val yOffset = (dynamicHeight - placeable.height) / 2
+            //         placeable.placeRelative(xOffset, yOffset)
+            //     }
+            // }
+            // .background(Color.Blue),
+            // .height(40.dp),
+        // contentAlignment = Alignment.BottomStart
+    ) {
         Text(
             text = textLine,
             lineHeight = lineHeight*scale,
             fontSize = TextParams.fontSize*scale,
             onTextLayout = { layoutResult ->
-                val newLocations = mutableMapOf<PositionedChord, Offset>()
-                chordLine.positionedChords.forEach {
-                    var lastOffset: Offset? = null
-                    if(it.position < textLine.length) {
-                        val rect = layoutResult.getBoundingBox(it.position)
-                        // val zacetekX = (rect.left + rect.right) / 2f
-                        val zacetekX = rect.left
-                        val vrhY = rect.top - yOff
-                        lastOffset = Offset(zacetekX, vrhY)
-                        newLocations[it] = lastOffset
+                val chordList = chordLine.positionedChords
+                val newGroups = mutableListOf<ChordGroup>()
+                var chordGroupChords: MutableList<PositionedChord>? = null
+                var chordGroupOffsets: MutableList<Offset>? = null
+                for(i in chordList.indices){
+                    // current chord
+                    val positionedChord = chordList[i]
+                    // val offset = getOffset(positionedChord, layoutResult, textLine.length)
+                    val offset = getOffsetOrLast(positionedChord, layoutResult, textLine.length)
+
+                    if(chordGroupChords == null){
+                        // ce se ni grupe:
+                        chordGroupChords = mutableListOf(positionedChord)
+                        chordGroupOffsets = mutableListOf(offset ?: Offset(0f, 0f)) // first chord should always have offset
                     }
                     else{
-                        newLocations[it] = lastOffset ?: Offset(0f, 0f)
+                        // ce pa je ze: poglej, a narest novo, al dodam v staro
+                        val lastChord = chordGroupChords.last()
+                        val lastChordCharPositionOffset = 1 // <- 1: chords that are only one char (space) apart, get to the same group (if 0, then they get assigned different groups)
+                        if((lastChord.lastChordCharPosition + lastChordCharPositionOffset) >= positionedChord.position){
+                            // assign to same group
+                            chordGroupChords.add(positionedChord)
+                            chordGroupOffsets?.add(offset)
+                        }
+                        else{
+                            // close previous group, assign new:
+                            val chordGroup = ChordGroup(chordGroupChords, chordGroupOffsets?:listOf())
+                            newGroups.add(chordGroup)
+
+                            // assign new
+                            chordGroupChords = mutableListOf(positionedChord)
+                            chordGroupOffsets = mutableListOf(offset ?: Offset(0f, 0f)) // first chord should always have offset
+                        }
                     }
                 }
-                locations = newLocations
+                if(chordGroupChords != null){
+                    val chordGroup = ChordGroup(chordGroupChords, chordGroupOffsets?:listOf())
+                    newGroups.add(chordGroup)
+                }
+                groups = newGroups
             },
         )
 
-        locations.forEach { (positionedChord, offset) ->
-            val bubblePadding = 2.dp
-            val xDp = with(density) { offset.x.toDp()-bubblePadding }
-            val yDp = with(density) { offset.y.toDp() }
+        groups.forEach { (positionedChords, offsets) ->
+            val bubblePadding = 4.dp
+            val xDp = with(density) { offsets[0].x.toDp()-bubblePadding }
+            val yDp = with(density) { offsets[0].y.toDp() }
+            // dots
+            if(offsets.size > 1){
+                offsets.forEach { offset ->
+                    val dotPadding = 2.dp
+                    val xDp1 = with(density) { offset.x.toDp() }
+                    val yDp1 = with(density) { offset.y.toDp() }
+                    Box(
+                        modifier = Modifier
+                            .offset(
+                                x = xDp1,
+                                y = yDp1 + dotPadding
+                            )
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                        // .background(MaterialTheme.colorScheme.surface)
+                    ){
+                        Text(
+                            text = " ",
+                            fontSize = TextParams.fontSize*scale
+                        )
+                    }
+                }
+            }
             Box(
                 modifier = Modifier
                     .offset(
                         x = xDp,
                         y = yDp
                     )
-
             ) {
                 ChordBubble(
-                    chord = positionedChord.chord,
+                    chords = positionedChords.map { c -> c.chord },
                     padding = bubblePadding,
                     fontSize = TextParams.fontSize*scale,
                 )
@@ -302,7 +398,7 @@ fun TextWithChords(textLine: String, chordLine: ChordLine, scale: Float = 1f){
 
 @Composable
 fun ChordBubble(
-    chord: Chord,
+    chords: List<Chord>,
     padding: Dp = 2.dp,
     fontSize: TextUnit = TextParams.fontSize,
 ){
@@ -311,8 +407,9 @@ fun ChordBubble(
             .background(MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(4.dp))
             .padding(horizontal = padding)
     ){
+        val text = chords.fold(""){ z, c -> "$z$c " }.trimEnd()
         Text(
-            chord.toString(),
+            text,
             color = MaterialTheme.colorScheme.onPrimary,
             fontSize = fontSize
         )
@@ -432,7 +529,7 @@ fun ChordText(
                 Row {
                     transposedChordLine.positionedChords.forEach { chord ->
                         ChordBubble(
-                            chord = chord.chord,
+                            chords = listOf(chord.chord),
                             padding = bubblePadding,
                             fontSize = TextParams.fontSize*scale,
                         )
